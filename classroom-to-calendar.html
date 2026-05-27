@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>作業同步日曆</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2230;
+    --border: #2a2f3e;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(79,142,247,0.3);
+  }
+  header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  header p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 2px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Setup card */
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 28px;
+  }
+  .setup-card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+  }
+  .step-badge {
+    width: 24px; height: 24px;
+    background: var(--accent);
+    color: white;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .field-group { margin-bottom: 18px; }
+  .field-group label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .field-group input, .field-group select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .field-group input:focus, .field-group select:focus {
+    border-color: var(--accent);
+  }
+  .field-group input::placeholder { color: var(--muted); }
+
+  .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .hint a { color: var(--accent); text-decoration: none; }
+  .hint a:hover { text-decoration: underline; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 22px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.18s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    box-shadow: 0 4px 16px rgba(79,142,247,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,142,247,0.45); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: rgba(248,113,113,0.1);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.3);
+  }
+  .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+  .btn-row {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    margin-bottom: 18px;
+    font-family: 'Space Mono', monospace;
+  }
+  .status-bar.info { background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.25); color: var(--accent); }
+  .status-bar.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); color: var(--green); }
+  .status-bar.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: var(--red); }
+  .status-bar.warn { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.25); color: var(--yellow); }
+
+  /* Spinner */
+  .spin {
+    width: 16px; height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Assignment list */
+  .assignments-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .assignments-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .count-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--muted);
+  }
+
+  .course-group { margin-bottom: 24px; }
+  .course-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
+  .assignment-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .assignment-item:hover { border-color: var(--accent); }
+  .assignment-item.selected { border-color: var(--accent); background: rgba(79,142,247,0.06); }
+  .assignment-item.synced { border-color: var(--green); background: rgba(52,211,153,0.05); }
+
+  .item-check {
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: grid;
+    place-items: center;
+    transition: all 0.15s;
+  }
+  .assignment-item.selected .item-check,
+  .assignment-item.synced .item-check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .assignment-item.synced .item-check { background: var(--green); border-color: var(--green); }
+  .item-check svg { display: none; }
+  .assignment-item.selected .item-check svg,
+  .assignment-item.synced .item-check svg { display: block; }
+
+  .item-body { flex: 1; min-width: 0; }
+  .item-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .chip {
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface2);
+    color: var(--muted);
+  }
+  .chip.due-soon { background: rgba(251,191,36,0.15); color: var(--yellow); }
+  .chip.overdue { background: rgba(248,113,113,0.15); color: var(--red); }
+  .chip.ok { background: rgba(52,211,153,0.1); color: var(--green); }
+  .chip.synced-tag { background: rgba(52,211,153,0.1); color: var(--green); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
+  .empty-state p { font-size: 0.88rem; }
+
+  /* Progress bar */
+  .progress-wrap {
+    background: var(--surface2);
+    border-radius: 999px;
+    height: 4px;
+    overflow: hidden;
+    margin: 12px 0;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .btn-row { flex-direction: column; }
+    .btn { width: 100%; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">📚</div>
+    <div>
+      <h1>作業同步日曆</h1>
+      <p>Google Classroom → Google Calendar</p>
+    </div>
+  </header>
+
+  <!-- Step 1: API 設定 -->
+  <div class="setup-card" id="card-setup">
+    <h2><span class="step-badge">1</span> 設定 Google API</h2>
+
+    <div class="field-group">
+      <label>Client ID</label>
+      <input type="text" id="clientId" placeholder="你的 OAuth 2.0 Client ID" autocomplete="off" />
+    </div>
+    <div class="field-group">
+      <label>API Key</label>
+      <input type="text" id="apiKey" placeholder="你的 Google API Key" autocomplete="off" />
+    </div>
+
+    <p class="hint">
+      需要先在 <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> 建立專案，啟用
+      <strong>Google Classroom API</strong> 和 <strong>Google Calendar API</strong>，
+      然後建立 OAuth 2.0 憑證（類型選「網頁應用程式」），授權的 JavaScript 來源填入此頁面的網址（例如 <code>http://localhost</code> 或 GitHub Pages 網址）。
+      詳細步驟見下方說明。
+    </p>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="initGapi()">🔑 使用此設定登入 Google</button>
+      <a href="#guide" class="btn btn-secondary" onclick="toggleGuide()">📖 設定教學</a>
+    </div>
+  </div>
+
+  <!-- 教學摺疊區 -->
+  <div id="guide" style="display:none;" class="setup-card">
+    <h2><span class="step-badge" style="background:var(--accent2)">?</span> 申請 API 金鑰教學</h2>
+    <ol style="line-height:2.2; font-size:0.86rem; color:#a0aec0; padding-left:20px;">
+      <li>前往 <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--accent)">Google Cloud Console</a> 並建立新專案</li>
+      <li>左側選單 → <strong>API 和服務</strong> → <strong>程式庫</strong></li>
+      <li>搜尋並啟用 <strong>Google Classroom API</strong></li>
+      <li>再次搜尋並啟用 <strong>Google Calendar API</strong></li>
+      <li>左側選單 → <strong>憑證</strong> → <strong>建立憑證</strong> → <strong>API 金鑰</strong>（複製備用）</li>
+      <li>再次建立憑證 → <strong>OAuth 用戶端 ID</strong> → 類型選「<strong>網頁應用程式</strong>」</li>
+      <li>「已授權的 JavaScript 來源」填入此頁面開啟的網址</li>
+      <li>複製 <strong>用戶端 ID</strong> 和 <strong>API 金鑰</strong> 填入上方欄位</li>
+      <li>左側 → <strong>OAuth 同意畫面</strong>，測試使用者加入你的 Google 帳號</li>
+    </ol>
+  </div>
+
+  <!-- 狀態區 -->
+  <div id="status-area"></div>
+
+  <!-- Step 2: 作業列表 -->
+  <div id="card-assignments" style="display:none;">
+    <div class="assignments-header">
+      <h2>📋 待繳作業</h2>
+      <span class="count-badge" id="count-badge">載入中...</span>
+    </div>
+
+    <div id="filter-bar" style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+      <button class="btn btn-secondary" style="font-size:0.78rem; padding:6px 14px;" onclick="filterAll()">全選</button>
+      <button class="btn btn-secondary" style="font-size:0.78rem; padding:6px 14px;" onclick="filterNone()">全不選</button>
+      <button class="btn btn-secondary" style="font-size:0.78rem; padding:6px 14px;" onclick="filterUrgent()">⚡ 只選緊急</button>
+    </div>
+
+    <div id="assignments-list"></div>
+
+    <div id="sync-section" style="display:none; margin-top:20px;">
+      <hr>
+      <div class="field-group">
+        <label>選擇目標日曆</label>
+        <select id="calendar-select">
+          <option value="primary">主要日曆</option>
+        </select>
+      </div>
+      <div id="progress-section" style="display:none;">
+        <div class="progress-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+        <p style="font-size:0.75rem; color:var(--muted); font-family:'Space Mono',monospace;" id="progress-text">準備中...</p>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="syncToCalendar()" id="btn-sync">📅 同步到日曆</button>
+        <button class="btn btn-secondary" onclick="fetchAssignments()">🔄 重新讀取作業</button>
+        <button class="btn btn-danger" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Google API Scripts -->
+<script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client"></script>
+
+<script>
+const SCOPES = [
+  'https://www.googleapis.com/auth/classroom.courses.readonly',
+  'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+  'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
+  'https://www.googleapis.com/auth/calendar.events'
+].join(' ');
+
+let tokenClient;
+let assignments = []; // {id, title, course, courseId, dueDate, link, synced}
+let calendarList = [];
+
+function toggleGuide() {
+  const g = document.getElementById('guide');
+  g.style.display = g.style.display === 'none' ? 'block' : 'none';
+}
+
+function showStatus(msg, type = 'info', spinner = false) {
+  document.getElementById('status-area').innerHTML = `
+    <div class="status-bar ${type}">
+      ${spinner ? '<div class="spin"></div>' : ''}
+      <span>${msg}</span>
+    </div>`;
+}
+function clearStatus() { document.getElementById('status-area').innerHTML = ''; }
+
+function initGapi() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!clientId || !apiKey) {
+    showStatus('請先填入 Client ID 和 API Key', 'error'); return;
+  }
+  showStatus('載入 Google API...', 'info', true);
+
+  gapi.load('client', async () => {
+    try {
+      await gapi.client.init({ apiKey, discoveryDocs: [
+        'https://classroom.googleapis.com/$discovery/rest?version=v1',
+        'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
+      ]});
+
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: SCOPES,
+        callback: onTokenReceived
+      });
+
+      showStatus('點擊下方按鈕授權 Google 帳號', 'info');
+      document.getElementById('card-setup').innerHTML += `
+        <div style="margin-top:14px;">
+          <button class="btn btn-primary" onclick="requestToken()">🔓 授權 Google 帳號</button>
+        </div>`;
+    } catch(e) {
+      showStatus('API 初始化失敗：' + (e.message || JSON.stringify(e)), 'error');
+    }
+  });
+}
+
+function requestToken() {
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+async function onTokenReceived(resp) {
+  if (resp.error) { showStatus('授權失敗：' + resp.error, 'error'); return; }
+  showStatus('授權成功！正在讀取課程...', 'success', true);
+  await loadCalendars();
+  await fetchAssignments();
+}
+
+async function loadCalendars() {
+  try {
+    const res = await gapi.client.calendar.calendarList.list({ minAccessRole: 'writer' });
+    const items = res.result.items || [];
+    calendarList = items;
+    const sel = document.getElementById('calendar-select');
+    sel.innerHTML = '';
+    items.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.summary;
+      if (c.primary) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) { /* use primary */ }
+}
+
+async function fetchAssignments() {
+  showStatus('讀取課程中...', 'info', true);
+  assignments = [];
+
+  try {
+    const coursesRes = await gapi.client.classroom.courses.list({ courseStates: ['ACTIVE'] });
+    const courses = (coursesRes.result.courses || []);
+
+    let total = 0;
+    for (const course of courses) {
+      showStatus(`讀取《${course.name}》的作業...`, 'info', true);
+      try {
+        const cwRes = await gapi.client.classroom.courses.courseWork.list({ courseId: course.id, orderBy: 'dueDate asc' });
+        const works = (cwRes.result.courseWork || []);
+
+        for (const w of works) {
+          // check if submitted
+          try {
+            const subRes = await gapi.client.classroom.courses.courseWork.studentSubmissions.list({
+              courseId: course.id, courseWorkId: w.id, userId: 'me'
+            });
+            const subs = subRes.result.studentSubmissions || [];
+            const submitted = subs.some(s => ['TURNED_IN','RETURNED'].includes(s.state));
+            if (submitted) continue;
+          } catch(e) { /* skip */ }
+
+          let dueDate = null;
+          if (w.dueDate) {
+            const d = w.dueDate, t = w.dueTime || {hours:23, minutes:59};
+            dueDate = new Date(d.year, d.month - 1, d.day, t.hours || 23, t.minutes || 59);
+          }
+
+          assignments.push({
+            id: w.id,
+            title: w.title,
+            course: course.name,
+            courseId: course.id,
+            dueDate,
+            link: w.alternateLink,
+            synced: false,
+            selected: true
+          });
+          total++;
+        }
+      } catch(e) { /* skip course */ }
+    }
+
+    clearStatus();
+    renderAssignments();
+
+    if (total === 0) {
+      showStatus('🎉 太棒了！目前沒有未繳的作業。', 'success');
+    }
+
+  } catch(e) {
+    showStatus('讀取失敗：' + (e.message || '請確認 API 已開啟'), 'error');
+  }
+}
+
+function urgencyClass(dueDate) {
+  if (!dueDate) return '';
+  const diff = (dueDate - new Date()) / 86400000;
+  if (diff < 0) return 'overdue';
+  if (diff < 2) return 'due-soon';
+  return 'ok';
+}
+function urgencyLabel(dueDate) {
+  if (!dueDate) return '無截止日';
+  const diff = (dueDate - new Date()) / 86400000;
+  if (diff < 0) return '已逾期';
+  if (diff < 1) return '今天到期！';
+  if (diff < 2) return '明天到期';
+  const d = dueDate;
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderAssignments() {
+  const container = document.getElementById('assignments-list');
+  document.getElementById('card-assignments').style.display = 'block';
+  document.getElementById('sync-section').style.display = 'block';
+
+  if (assignments.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">✨</div><p>沒有未繳作業</p></div>`;
+    updateBadge(); return;
+  }
+
+  // group by course
+  const groups = {};
+  assignments.forEach(a => {
+    if (!groups[a.course]) groups[a.course] = [];
+    groups[a.course].push(a);
+  });
+
+  let html = '';
+  for (const [course, items] of Object.entries(groups)) {
+    html += `<div class="course-group">
+      <div class="course-label">📘 ${course}</div>`;
+    items.forEach(a => {
+      const urg = urgencyClass(a.dueDate);
+      const sel = a.selected ? 'selected' : '';
+      const syncedClass = a.synced ? 'synced' : '';
+      html += `
+      <div class="assignment-item ${sel} ${syncedClass}" onclick="toggleItem('${a.id}')" id="item-${a.id}">
+        <div class="item-check">
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="item-body">
+          <div class="item-title">${escHtml(a.title)}</div>
+          <div class="item-meta">
+            <span class="chip ${urg}">🕐 ${urgencyLabel(a.dueDate)}</span>
+            ${a.synced ? '<span class="chip synced-tag">✅ 已同步</span>' : ''}
+          </div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+  updateBadge();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleItem(id) {
+  const a = assignments.find(x => x.id === id);
+  if (!a || a.synced) return;
+  a.selected = !a.selected;
+  const el = document.getElementById('item-' + id);
+  el.classList.toggle('selected', a.selected);
+  updateBadge();
+}
+
+function filterAll() { assignments.forEach(a => { if(!a.synced) a.selected = true; }); renderAssignments(); }
+function filterNone() { assignments.forEach(a => { a.selected = false; }); renderAssignments(); }
+function filterUrgent() {
+  assignments.forEach(a => {
+    if (a.synced) return;
+    a.selected = urgencyClass(a.dueDate) === 'due-soon' || urgencyClass(a.dueDate) === 'overdue';
+  });
+  renderAssignments();
+}
+
+function updateBadge() {
+  const sel = assignments.filter(a => a.selected).length;
+  document.getElementById('count-badge').textContent = `已選 ${sel} / 共 ${assignments.length} 項`;
+}
+
+async function syncToCalendar() {
+  const selected = assignments.filter(a => a.selected && !a.synced);
+  if (selected.length === 0) { showStatus('請先選擇要同步的作業', 'warn'); return; }
+
+  const calendarId = document.getElementById('calendar-select').value;
+  const btn = document.getElementById('btn-sync');
+  btn.disabled = true;
+
+  document.getElementById('progress-section').style.display = 'block';
+  const bar = document.getElementById('progress-bar');
+  const ptext = document.getElementById('progress-text');
+
+  let done = 0, failed = 0;
+  for (const a of selected) {
+    ptext.textContent = `同步中：${a.title}`;
+    try {
+      const event = buildEvent(a);
+      await gapi.client.calendar.events.insert({ calendarId, resource: event });
+      a.synced = true; a.selected = false;
+      done++;
+    } catch(e) {
+      failed++;
+    }
+    bar.style.width = Math.round((done + failed) / selected.length * 100) + '%';
+  }
+
+  btn.disabled = false;
+  document.getElementById('progress-section').style.display = 'none';
+  renderAssignments();
+
+  if (failed === 0) {
+    showStatus(`🎉 成功同步 ${done} 項作業到 Google 日曆！`, 'success');
+  } else {
+    showStatus(`同步完成：${done} 成功，${failed} 失敗（可能已存在或 API 限制）`, 'warn');
+  }
+}
+
+function buildEvent(a) {
+  let start, end;
+  if (a.dueDate) {
+    end = a.dueDate.toISOString();
+    const s = new Date(a.dueDate.getTime() - 60 * 60 * 1000);
+    start = s.toISOString();
+  } else {
+    // no due date: all day today
+    const today = new Date().toISOString().split('T')[0];
+    return {
+      summary: `📚 ${a.title}`,
+      description: `課程：${a.course}\n連結：${a.link}`,
+      start: { date: today },
+      end: { date: today },
+      colorId: '5',
+      reminders: { useDefault: false, overrides: [] }
+    };
+  }
+  return {
+    summary: `📚 ${a.title}`,
+    description: `課程：${a.course}\n連結：${a.link}`,
+    start: { dateTime: start },
+    end: { dateTime: end },
+    colorId: urgencyClass(a.dueDate) === 'overdue' ? '11' : urgencyClass(a.dueDate) === 'due-soon' ? '6' : '9',
+    reminders: {
+      useDefault: false,
+      overrides: [
+        { method: 'popup', minutes: 24 * 60 },
+        { method: 'popup', minutes: 60 }
+      ]
+    }
+  };
+}
+
+function logout() {
+  google.accounts.oauth2.revoke(gapi.client.getToken()?.access_token || '', () => {});
+  gapi.client.setToken(null);
+  document.getElementById('card-assignments').style.display = 'none';
+  clearStatus();
+  showStatus('已登出 Google 帳號', 'info');
+}
+</script>
+</body>
+</html>
